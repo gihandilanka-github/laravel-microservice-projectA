@@ -1,0 +1,92 @@
+version: '2'
+
+networks:
+  mymicroservice:
+  laravel-microservice-projectb_microserviceB-shared:
+    external: true
+
+services:
+
+    nginx-proxy:
+        image: jwilder/nginx-proxy
+        container_name: nginx_proxy_microserviceA
+        ports:
+        - "8081:80"
+        volumes:
+            - /var/run/docker.sock:/tmp/docker.sock:ro
+            - /home/gihandilanka/cert/CA/api.microservice-a.test:/etc/nginx/certs
+        networks:
+          - mymicroservice
+
+    web:
+        build:
+            context: ./
+            dockerfile: docker/dev/web.docker
+        container_name: nginx_microserviceA
+        ports:
+          - "8082:80"
+        volumes:
+            - ./:/var/www
+            - /home/gihandilanka/cert/CA/api.microservice-a.test:/etc/nginx/certs
+        links:
+            - app
+        environment:
+            - "VIRTUAL_HOST=api.microservice-a.test"
+        networks:
+          - mymicroservice
+          - laravel-microservice-projectb_microserviceB-shared
+
+    app:
+        build:
+            context: ./
+            dockerfile: docker/dev/app.docker
+        container_name: php_microserviceA
+        volumes:
+            - ./:/var/www
+        links:
+            - database
+            - cache
+        environment:
+            - "DB_PORT=3306"
+            - "DB_HOST=database"
+            - "REDIS_PORT=6379"
+            - "REDIS_HOST=cache"
+        networks:
+          - mymicroservice
+          - laravel-microservice-projectb_microserviceB-shared
+
+    database:
+        image: mysql:8.0
+        container_name: mysql_microserviceA
+        environment:
+            - "MYSQL_ROOT_PASSWORD=123"
+            - "MYSQL_DATABASE=microserviceA"
+        ports:
+            - "33061:3306"
+        working_dir: /app
+        volumes:
+          - ./:/var/www
+        networks:
+          - mymicroservice
+
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        container_name: phpmyadmin_microserviceA
+        links:
+            - database:db
+        environment:
+            - "PMA_USER=root"
+            - "PMA_PASSWORD=123"
+            - "PHP_UPLOAD_MAX_FILESIZE=100MB"
+            - "VIRTUAL_HOST=pma.microservice-a.test"
+        networks:
+          - mymicroservice
+
+
+    cache:
+        image: redis:3.0
+        container_name: redis_microserviceA
+        ports:
+            - "63791:6379"
+        networks:
+          - mymicroservice
